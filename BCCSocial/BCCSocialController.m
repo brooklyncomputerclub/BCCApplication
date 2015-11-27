@@ -6,7 +6,7 @@
 //
 
 #import "BCCSocialController.h"
-#import "BCCHTTPRequest.h"
+#import "BCCHTTPRequestQueue.h"
 #import "NSString+BCCAdditions.h"
 
 NSString * const BCCSocialControllerTwitterOAuthBaseURL = @"https://api.twitter.com/oauth";

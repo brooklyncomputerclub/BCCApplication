@@ -17,8 +17,6 @@ typedef void (^BCCSocialControllerTwitterReverseAuthCompletionBlock)(NSString *O
 
 @interface BCCSocialController : NSObject
 
-@property (nonatomic, readonly) ACAccountStore *socialAccountStore;
-
 // Facebook
 - (void)requestAccessToSystemFacebookAccountWithAppID:(NSString *)facebookAppID completionBlock:(BCCSocialControllerAccountAccessCompletionBlock)completionBlock;
 
