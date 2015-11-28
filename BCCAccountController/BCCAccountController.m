@@ -571,7 +571,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     //NSLog(@"KEYCHAIN SET: %@ - %@", keychainServiceName, identifier);
     
     NSError *error = nil;
-    [BCCKeychain storeUsername:identifier andPasswordData:authCredential forServiceName:keychainServiceName updateExisting:YES error:&error];
+    [BCCKeychain storeUsername:identifier andPasswordData:authCredential forServiceName:keychainServiceName updateExisting:YES error:NULL];
     if (error) {
         NSLog(@"Unable to store auth credentials due to error: %@", error);
     }
