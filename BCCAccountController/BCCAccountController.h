@@ -19,6 +19,8 @@ extern NSString *BCCAccountControllerDidClearAccountsNotification;
 extern NSString *BCCAccountControllerWillClearCurrentAccountNotification;
 extern NSString *BCCAccountControllerDidClearCurrentAccountNotification;
 
+extern NSString *BCCAccountControllerDidUpdateAuthCredentialNotification;
+
 extern NSString *BCCAccountControllerNewCurrentAccountNotificationKey;
 
 

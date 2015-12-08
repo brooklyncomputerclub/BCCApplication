@@ -55,6 +55,8 @@ NSString *BCCAccountControllerDidClearCurrentAccountNotification = @"BCCAccountC
 
 NSString * BCCAccountControllerKeyModifiedNotification = @"BCCAccountControllerKeyModifiedNotification";
 
+NSString * BCCAccountControllerDidUpdateAuthCredentialNotification = @"BCCAccountControllerKeyModifiedNotification";
+
 NSString *BCCAccountControllerNotificationUserInfoKeyAccountIdentifier = @"AccountIdentifier";
 NSString *BCCAccountControllerNotificationUserInfoKeyDefaultsKey = @"DefaultsKey";
 
@@ -562,6 +564,9 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
         //NSLog(@"CLEAR AUTH CREDENTIAL");
         
         [self clearAuthCredential];
+        
+        [[NSNotificationCenter defaultCenter] postNotificationName:BCCAccountControllerDidUpdateAuthCredentialNotification object:self];
+        
         return;
     }
     
@@ -574,6 +579,8 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     [BCCKeychain storeUsername:identifier andPasswordData:authCredential forServiceName:keychainServiceName updateExisting:YES error:NULL];
     if (error) {
         NSLog(@"Unable to store auth credentials due to error: %@", error);
+    } else {
+        [[NSNotificationCenter defaultCenter] postNotificationName:BCCAccountControllerDidUpdateAuthCredentialNotification object:self];
     }
 }
 
