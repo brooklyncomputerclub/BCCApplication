@@ -38,7 +38,7 @@ typedef enum {
 @property (nonatomic) BCCAccountControllerAccountManagementMode accountManagementMode;
 
 // Class Methods
-+ (BCCAccountController *)sharedInstance;
++ (instancetype)sharedInstance;
 
 // Accounts
 - (BCCAccount *)newAccount;

@@ -121,9 +121,9 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 #pragma mark - Class Methods
 
-+ (BCCAccountController *)sharedInstance
++ (instancetype)sharedInstance
 {
-    static BCCAccountController *sharedInstance;
+    static id sharedInstance;
     
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
