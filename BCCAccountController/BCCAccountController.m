@@ -65,6 +65,8 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 @interface BCCAccountController ()
 
+@property (nonatomic) Class<BCCAccount> accountClass;
+
 + (NSString *)currentAccountIdentifier;
 + (void)setCurrentAccountIdentifer:(NSString *)accountIdentifier;
 
@@ -74,26 +76,6 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 - (NSArray *)accountsMatchingPredicate:(NSPredicate *)predicate;
 
 - (void)clearCurrentAccount;
-
-@end
-
-
-@interface BCCAccount ()
-
-- (id)accountDefaultsValueForKey:(NSString *)defaultsKey;
-- (id)accountDefaultsValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
-
-- (void)setAccountDefaultsValue:(id)value forKey:(NSString *)defaultsKey;
-- (void)setAccountDefaultsValue:(id)value forKey:(NSString *)defaultsKey environment:(NSString *)environment;
-
-- (NSString *)accountDefaultsStringValueForKey:(NSString *)defaultsKey;
-- (NSString *)accountDefaultsStringValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
-
-- (BOOL)accountDefaultsBoolValueForKey:(NSString *)defaultsKey;
-- (BOOL)accountDefaultsBoolValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
-
-- (void)setAccountDefaultsBoolValue:(BOOL)value forKey:(NSString *)defaultsKey;
-- (void)setAccountDefaultsBoolValue:(BOOL)value forKey:(NSString *)defaultsKey environment:(NSString *)environment;
 
 @end
 
@@ -121,16 +103,10 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 #pragma mark - Class Methods
 
-+ (instancetype)sharedInstance
++ (NSString *)keychainServiceName
 {
-    static id sharedInstance;
-    
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        sharedInstance = [[self alloc] init];
-    });
-    
-    return sharedInstance;
+    NSString *defaultsKeychainServiceName = [[NSBundle mainBundle] objectForInfoDictionaryKey:BCCAccountControllerKeychainServiceNameInfoKey];
+    return defaultsKeychainServiceName ? defaultsKeychainServiceName : [[NSBundle mainBundle] bundleIdentifier];
 }
 
 + (NSString *)currentAccountIdentifier
@@ -151,18 +127,34 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 #pragma mark - Initialization
 
+- (instancetype)initWithWithAccountClass:(Class)accountClass
+{
+    if (!(self = [super init])) {
+        return nil;
+    }
+    
+    _accountClass = accountClass;
+    [self initializeForCurrentAccount];
+
+    return self;
+}
+
 - (id)init
 {
     if (!(self = [super init])) {
         return nil;
     }
     
-    _currentAccount = nil;
-    _accountManagementMode = BCCAccountControllerAccountManagementModeSingle;
-    
+    _accountClass = [BCCDefaultsAccount class];
     [self initializeForCurrentAccount];
     
     return self;
+}
+
+- (void)commonInit
+{
+    _currentAccount = nil;
+    _accountManagementMode = BCCAccountControllerAccountManagementModeSingle;
 }
 
 #pragma mark - Life Cycle
@@ -179,17 +171,16 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
         return;
     }
     
-    BCCAccount *account = [[BCCAccount alloc] initWithIdentifier:accountIdentifier];
+    id<BCCAccount> account = [[self.accountClass alloc] initWithIdentifier:accountIdentifier];
     _currentAccount = account;
 }
 
 #pragma mark - Accounts
 
-- (BCCAccount *)newAccount
+- (id<BCCAccount>)newAccount
 {
-    BCCAccount *account = [[BCCAccount alloc] initWithIdentifier:[[NSUUID UUID] UUIDString]];
-    
-     return account;
+    id<BCCAccount> account = [[self.accountClass alloc] initWithIdentifier:[[NSUUID UUID] UUIDString]];
+    return account;
 }
 
 - (NSArray *)accountList
@@ -197,7 +188,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     return [self accountsMatchingPredicate:nil];
 }
 
-- (BCCAccount *)accountForIdentifier:(NSString *)identifier
+- (id<BCCAccount>)accountForIdentifier:(NSString *)identifier
 {
     if (!identifier) {
         return nil;
@@ -207,7 +198,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     return [accountsInfo objectForKey:identifier];
 }
 
-- (BCCAccount *)accountForUserID:(NSString *)userID
+- (id<BCCAccount>)accountForUserID:(NSString *)userID
 {
     if (!userID) {
         return nil;
@@ -239,14 +230,14 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
             continue;
         }
         
-        BCCAccount *currentAccount = [[BCCAccount alloc] initWithIdentifier:currentIdentifier];
+        id currentAccount = [[self.accountClass alloc] initWithIdentifier:currentIdentifier];
         [accounts addObject:currentAccount];
     }
     
     return accounts;
 }
 
-- (void)setCurrentAccount:(BCCAccount *)newCurrentAccount
+- (void)setCurrentAccount:(id <BCCAccount>)newCurrentAccount
 {
     NSString *oldCurrentAccountIdentifier = self.currentAccount.identifier;
     NSString *newAccountIdentifier = newCurrentAccount.identifier;
@@ -305,7 +296,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 - (void)clearAuthCredentialForAccountWithIdentifier:(NSString *)identifier
 {
     NSError *error = nil;
-    [BCCKeychain deleteItemForUsername:identifier andServiceName:[BCCAccount keychainServiceName] error:&error];
+    [BCCKeychain deleteItemForUsername:identifier andServiceName:[BCCAccountController keychainServiceName] error:&error];
     if (error) {
         NSLog(@"Unable to clear auth credentials due to error: %@", error);
     }
@@ -329,7 +320,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
                            
 #pragma mark -
 
-@implementation BCCAccount
+@implementation BCCDefaultsAccount
 
 #pragma mark - Class Methods
 
@@ -348,15 +339,9 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     return [[NSBundle mainBundle] objectForInfoDictionaryKey:BCCAccountControllerDefaultAPIVersionInfoKey];
 }
 
-+ (NSString *)keychainServiceName
-{
-    NSString *defaultsKeychainServiceName = [[NSBundle mainBundle] objectForInfoDictionaryKey:BCCAccountControllerKeychainServiceNameInfoKey];
-    return defaultsKeychainServiceName ? defaultsKeychainServiceName : [[NSBundle mainBundle] bundleIdentifier];
-}
-
 #pragma mark - Initialization
 
-- (BCCAccount *)initWithIdentifier:(NSString *)identifier
+- (instancetype)initWithIdentifier:(NSString *)identifier
 {
     if (!(self = [super init])) {
         return nil;
@@ -379,117 +364,117 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 {
     _identifier = identifier;
     
-    [self setAccountDefaultsValue:identifier forKey:BCCAccountIdentifierDefaultsKey];
+    [self setAccountValue:identifier forKey:BCCAccountIdentifierDefaultsKey];
 }
 
 - (NSString *)userID
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountUserIDDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountUserIDDefaultsKey];
 }
 
 - (void)setUserID:(NSString *)userID
 {
-    [self setAccountDefaultsValue:userID forKey:BCCAccountUserIDDefaultsKey];
+    [self setAccountValue:userID forKey:BCCAccountUserIDDefaultsKey];
 }
 
 - (NSString *)username
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountUsernameDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountUsernameDefaultsKey];
 }
 
 - (void)setUsername:(NSString *)username
 {
-    [self setAccountDefaultsValue:username forKey:BCCAccountUsernameDefaultsKey];
+    [self setAccountValue:username forKey:BCCAccountUsernameDefaultsKey];
 }
 
 - (NSString *)email;
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountEmailDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountEmailDefaultsKey];
 }
 
 - (void)setEmail:(NSString *)email
 {
-    [self setAccountDefaultsValue:email forKey:BCCAccountEmailDefaultsKey];
+    [self setAccountValue:email forKey:BCCAccountEmailDefaultsKey];
 }
 
 - (NSString *)fullName
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountFullNameDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountFullNameDefaultsKey];
 }
 
 - (void)setFullName:(NSString *)fullName
 {
-    [self setAccountDefaultsValue:fullName forKey:BCCAccountFullNameDefaultsKey];
+    [self setAccountValue:fullName forKey:BCCAccountFullNameDefaultsKey];
 }
 
 - (NSString *)firstName
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountFirstNameDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountFirstNameDefaultsKey];
 }
 
 - (void)setFirstName:(NSString *)firstName
 {
-    [self setAccountDefaultsValue:firstName forKey:BCCAccountFirstNameDefaultsKey];
+    [self setAccountValue:firstName forKey:BCCAccountFirstNameDefaultsKey];
 }
 
 - (NSString *)lastName
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountLastNameDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountLastNameDefaultsKey];
 }
 
 - (void)setLastName:(NSString *)lastName
 {
-    [self setAccountDefaultsValue:lastName forKey:BCCAccountLastNameDefaultsKey];
+    [self setAccountValue:lastName forKey:BCCAccountLastNameDefaultsKey];
 }
 
 - (NSString *)accountDescription
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountDescriptionDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountDescriptionDefaultsKey];
 }
 
 - (void)setAccountDescription:(NSString *)bio
 {
-    [self setAccountDefaultsValue:bio forKey:BCCAccountDescriptionDefaultsKey];
+    [self setAccountValue:bio forKey:BCCAccountDescriptionDefaultsKey];
 }
 
 - (NSString *)locationDescription
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountLocationDescriptionDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountLocationDescriptionDefaultsKey];
 }
 
 - (void)setLocationDescription:(NSString *)locationDescription
 {
-    [self setAccountDefaultsValue:locationDescription forKey:BCCAccountLocationDescriptionDefaultsKey];
+    [self setAccountValue:locationDescription forKey:BCCAccountLocationDescriptionDefaultsKey];
 }
 
 - (NSString *)personalURL
 {
-    return [self accountDefaultsStringValueForKey:BCCPersonalURLDefaultsKey];
+    return [self accountStringValueForKey:BCCPersonalURLDefaultsKey];
 }
 
 - (void)setPersonalURL:(NSString *)personalURL
 {
-    [self setAccountDefaultsValue:personalURL forKey:BCCPersonalURLDefaultsKey];
+    [self setAccountValue:personalURL forKey:BCCPersonalURLDefaultsKey];
 }
 
 - (NSString *)phoneNumber
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountPhoneNumberDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountPhoneNumberDefaultsKey];
 }
 
 - (void)setPhoneNumber:(NSString *)phoneNumber
 {
-    [self setAccountDefaultsValue:phoneNumber forKey:BCCAccountPhoneNumberDefaultsKey];
+    [self setAccountValue:phoneNumber forKey:BCCAccountPhoneNumberDefaultsKey];
 }
 
 - (NSString *)avatarURL
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountAvatarURLDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountAvatarURLDefaultsKey];
 }
 
 - (void)setAvatarURL:(NSString *)avatarURL
 {
-    [self setAccountDefaultsValue:avatarURL forKey:BCCAccountAvatarURLDefaultsKey];
+    [self setAccountValue:avatarURL forKey:BCCAccountAvatarURLDefaultsKey];
 }
 
 - (NSString *)HTTPEndpoint
@@ -497,7 +482,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     NSString *endpoint = self.userHTTPEndpoint;
     
     if (!endpoint) {
-        NSDictionary *defaultEndpoints = [BCCAccount defaultHTTPEndpoints];
+        NSDictionary *defaultEndpoints = [BCCDefaultsAccount defaultHTTPEndpoints];
         if (!defaultEndpoints) {
             return nil;
         }
@@ -510,12 +495,12 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 - (NSString *)userHTTPEndpoint
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountHTTPEndpointDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountHTTPEndpointDefaultsKey];
 }
 
 - (void)setUserHTTPEndpoint:(NSString *)HTTPEndpoint
 {
-    [self setAccountDefaultsValue:HTTPEndpoint forKey:BCCAccountHTTPEndpointDefaultsKey];
+    [self setAccountValue:HTTPEndpoint forKey:BCCAccountHTTPEndpointDefaultsKey];
 }
 
 - (NSString *)APIVersion
@@ -523,7 +508,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     NSString *version = self.userAPIVersion;
     
     if (!version) {
-        version = [BCCAccount defaultAPIVersion];
+        version = [BCCDefaultsAccount defaultAPIVersion];
     }
     
     return version;
@@ -531,12 +516,12 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 - (NSString *)userAPIVersion
 {
-    return [self accountDefaultsStringValueForKey:BCCAccountAPIVersionDefaultsKey];
+    return [self accountStringValueForKey:BCCAccountAPIVersionDefaultsKey];
 }
 
 - (void)setUserAPIVersion:(NSString *)APIVersion
 {
-    [self setAccountDefaultsValue:APIVersion forKey:BCCAccountAPIVersionDefaultsKey];
+    [self setAccountValue:APIVersion forKey:BCCAccountAPIVersionDefaultsKey];
 }
 
 - (NSData *)authCredential
@@ -546,7 +531,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     }
     
     NSString *identifier = self.identifier;
-    NSString *keychainServiceName = [BCCAccount keychainServiceName];
+    NSString *keychainServiceName = [BCCAccountController keychainServiceName];
     NSData *keychainData = [BCCKeychain getPasswordDataForUsername:identifier andServiceName:keychainServiceName error:NULL];
     
     //NSLog(@"KEYCHAIN REQUEST: %@ - %@ - %d", keychainServiceName, identifier, (keychainData != nil));
@@ -571,7 +556,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     }
     
     NSString *identifier = self.identifier;
-    NSString *keychainServiceName = [BCCAccount keychainServiceName];
+    NSString *keychainServiceName = [BCCAccountController keychainServiceName];
     
     //NSLog(@"KEYCHAIN SET: %@ - %@", keychainServiceName, identifier);
     
@@ -586,12 +571,12 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 #pragma mark - Defaults Conveniences
 
-- (id)accountDefaultsValueForKey:(NSString *)defaultsKey
+- (id)accountValueForKey:(NSString *)defaultsKey
 {
-    return [self accountDefaultsValueForKey:defaultsKey environment:nil];
+    return [self accountValueForKey:defaultsKey environment:nil];
 }
 
-- (id)accountDefaultsValueForKey:(NSString *)defaultsKey environment:(NSString *)environment
+- (id)accountValueForKey:(NSString *)defaultsKey environment:(NSString *)environment
 {
     if (!defaultsKey || !self.identifier) {
         return nil;
@@ -600,12 +585,12 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     return [[NSUserDefaults standardUserDefaults] BCC_objectForKey:defaultsKey forAccountWithIdentifier:self.identifier environment:environment];
 }
 
-- (void)setAccountDefaultsValue:(id)value forKey:(NSString *)defaultsKey
+- (void)setAccountValue:(id)value forKey:(NSString *)defaultsKey
 {
-    [self setAccountDefaultsValue:value forKey:defaultsKey environment:nil];
+    [self setAccountValue:value forKey:defaultsKey environment:nil];
 }
 
-- (void)setAccountDefaultsValue:(id)value forKey:(NSString *)defaultsKey environment:(NSString *)environment
+- (void)setAccountValue:(id)value forKey:(NSString *)defaultsKey environment:(NSString *)environment
 {
     if (!value || [value isKindOfClass:[NSNull class]] || !defaultsKey || !self.identifier) {
         return;
@@ -614,30 +599,40 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     [[NSUserDefaults standardUserDefaults] BCC_setObject:value forKey:defaultsKey forAccountWithIdentifier:self.identifier environment:environment];
 }
 
-- (id)serializedAccountDefaultsValueForKey:(NSString *)defaultsKey
+- (id)serializedAccountValueForKey:(NSString *)defaultsKey
+{
+    return [self serializedAccountValueForKey:defaultsKey environment:nil];
+}
+
+- (id)serializedAccountValueForKey:(NSString *)defaultsKey environment:(NSString *)environment
 {
     if (!defaultsKey || !self.identifier) {
         return nil;
     }
     
-    return [[NSUserDefaults standardUserDefaults] BCC_serializedObjectForKey:defaultsKey forAccountWithIdentifier:self.identifier];
+    return [[NSUserDefaults standardUserDefaults] BCC_serializedObjectForKey:defaultsKey forAccountWithIdentifier:self.identifier environment:environment];
 }
 
-- (void)setSerializedAccountDefaultsValue:(id)value forKey:(NSString *)defaultsKey
+- (void)setSerializedAccountValue:(id)value forKey:(NSString *)defaultsKey
+{
+    [self setSerializedAccountValue:value forKey:defaultsKey environment:nil];
+}
+
+- (void)setSerializedAccountValue:(id)value forKey:(NSString *)defaultsKey environment:(NSString *)environment
 {
     if (!value || !defaultsKey || !self.identifier) {
         return;
     }
     
-    [[NSUserDefaults standardUserDefaults] BCC_setSerializedObjectWithValue:value forKey:defaultsKey forAccountWithIdentifier:self.identifier];
+    [[NSUserDefaults standardUserDefaults] BCC_setSerializedObjectWithValue:value forKey:defaultsKey forAccountWithIdentifier:self.identifier environment:environment];
 }
 
-- (NSString *)accountDefaultsStringValueForKey:(NSString *)defaultsKey
+- (NSString *)accountStringValueForKey:(NSString *)defaultsKey
 {
-    return [self accountDefaultsStringValueForKey:defaultsKey environment:nil];
+    return [self accountStringValueForKey:defaultsKey environment:nil];
 }
 
-- (NSString *)accountDefaultsStringValueForKey:(NSString *)defaultsKey environment:(NSString *)environment
+- (NSString *)accountStringValueForKey:(NSString *)defaultsKey environment:(NSString *)environment
 {
     if (!defaultsKey || !self.identifier) {
         return nil;
@@ -646,12 +641,12 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     return [[NSUserDefaults standardUserDefaults] BCC_stringForKey:defaultsKey forAccountWithIdentifier:self.identifier environment:environment];
 }
 
-- (BOOL)accountDefaultsBoolValueForKey:(NSString *)defaultsKey
+- (BOOL)accountBoolValueForKey:(NSString *)defaultsKey
 {
-    return [self accountDefaultsBoolValueForKey:defaultsKey environment:nil];
+    return [self accountBoolValueForKey:defaultsKey environment:nil];
 }
 
-- (BOOL)accountDefaultsBoolValueForKey:(NSString *)defaultsKey environment:(NSString *)environment
+- (BOOL)accountBoolValueForKey:(NSString *)defaultsKey environment:(NSString *)environment
 {
     if (!defaultsKey || !self.identifier) {
         return NO;
@@ -660,18 +655,18 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     return [[NSUserDefaults standardUserDefaults] BCC_boolForKey:defaultsKey forAccountWithIdentifier:self.identifier environment:environment];
 }
 
-- (void)setAccountDefaultsBoolValue:(BOOL)value forKey:(NSString *)defaultsKey
+- (void)setAccountBoolValue:(BOOL)value forKey:(NSString *)defaultsKey
 {
-    return [self setAccountDefaultsBoolValue:value forKey:defaultsKey environment:nil];
+    return [self setAccountBoolValue:value forKey:defaultsKey environment:nil];
 }
 
-- (void)setAccountDefaultsBoolValue:(BOOL)value forKey:(NSString *)defaultsKey environment:(NSString *)environment
+- (void)setAccountBoolValue:(BOOL)value forKey:(NSString *)defaultsKey environment:(NSString *)environment
 {
     if (!defaultsKey || !self.identifier) {
         return;
     }
     
-    [[NSUserDefaults standardUserDefaults] BCC_setBool:value forKey:defaultsKey forAccountWithIdentifier:self.identifier];
+    [[NSUserDefaults standardUserDefaults] BCC_setBool:value forKey:defaultsKey forAccountWithIdentifier:self.identifier environment:environment];
 }
 
 #pragma mark - Auth Credentials
@@ -683,7 +678,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     }
  
     NSError *error = nil;
-    [BCCKeychain deleteItemForUsername:self.identifier andServiceName:[BCCAccount keychainServiceName] error:&error];
+    [BCCKeychain deleteItemForUsername:self.identifier andServiceName:[BCCAccountController keychainServiceName] error:&error];
     if (error) {
         NSLog(@"Unable to clear auth credentials due to error: %@", error);
     }
@@ -693,7 +688,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
 
 - (BOOL)isEqual:(id)object
 {
-    if (![object isKindOfClass:[BCCAccount class]]) {
+    if (![object isKindOfClass:[self class]]) {
         return NO;
     }
     
@@ -701,7 +696,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
         return YES;
     }
     
-    return [((BCCAccount *)object).identifier isEqualToString:self.identifier];
+    return [((BCCDefaultsAccount *)object).identifier isEqualToString:self.identifier];
 }
 
 @end

@@ -8,7 +8,7 @@
 #import <Foundation/Foundation.h>
 #import <Accounts/Accounts.h>
 
-@class BCCAccount;
+@protocol BCCAccount;
 
 extern NSString * BCCAccountControllerWillChangeCurrentAccountNotification;
 extern NSString * BCCAccountControllerDidChangeCurrentAccountNotification;
@@ -32,19 +32,24 @@ typedef enum {
 
 @interface BCCAccountController : NSObject
 
-@property (strong, nonatomic) BCCAccount *currentAccount;
-@property (nonatomic, readonly) NSArray *accountList;
+@property (nonatomic, readonly) Class accountClass;
 
 @property (nonatomic) BCCAccountControllerAccountManagementMode accountManagementMode;
 
+@property (strong, nonatomic) id<BCCAccount> currentAccount;
+@property (nonatomic, readonly) NSArray<BCCAccount> *accountList;
+
 // Class Methods
-+ (instancetype)sharedInstance;
++ (NSString *)keychainServiceName;
+
+// Initialization
+- (instancetype)initWithWithAccountClass:(Class)accountClass;
 
 // Accounts
-- (BCCAccount *)newAccount;
+- (id<BCCAccount>)newAccount;
 
-- (BCCAccount *)accountForIdentifier:(NSString *)identifier;
-- (BCCAccount *)accountForUserID:(NSString *)userID;
+- (id<BCCAccount>)accountForIdentifier:(NSString *)identifier;
+- (id<BCCAccount>)accountForUserID:(NSString *)userID;
 
 - (void)removeAccountWithIdentifier:(NSString *)indentifier;
 - (void)removeAllAccounts;
@@ -54,7 +59,24 @@ typedef enum {
 @end
 
 
-@interface BCCAccount : NSObject
+@protocol BCCAccount <NSObject>
+
+@property (strong, nonatomic) NSString *identifier;
+@property (strong, nonatomic) NSString *environmentKey;
+
+// Initialization
+- (instancetype)initWithIdentifier:(NSString *)inIdentifier;
+
+// Property Values
+- (id)accountValueForKey:(NSString *)defaultsKey;
+- (id)accountValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
+- (void)setAccountValue:(id)value forKey:(NSString *)defaultsKey;
+- (void)setAccountValue:(id)value forKey:(NSString *)defaultsKey environment:(NSString *)environment;
+
+@end
+
+
+@interface BCCDefaultsAccount : NSObject <BCCAccount>
 
 @property (strong, nonatomic) NSString *identifier;
 @property (strong, nonatomic) NSString *environmentKey;
@@ -79,26 +101,31 @@ typedef enum {
 // Class Methods
 + (NSDictionary *)defaultHTTPEndpoints;
 + (NSString *)defaultAPIVersion;
-+ (NSString *)keychainServiceName;
 
 // Initialization
-- (BCCAccount *)initWithIdentifier:(NSString *)inIdentifier;
+- (instancetype)initWithIdentifier:(NSString *)inIdentifier;
 
 // Auth Credentials
 - (void)clearAuthCredential;
 
 // Property Values
-- (id)accountDefaultsValueForKey:(NSString *)defaultsKey;
-- (void)setAccountDefaultsValue:(id)value forKey:(NSString *)defaultsKey;
+- (id)accountValueForKey:(NSString *)defaultsKey;
+- (id)accountValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
+- (void)setAccountValue:(id)value forKey:(NSString *)defaultsKey;
+- (void)setAccountValue:(id)value forKey:(NSString *)defaultsKey environment:(NSString *)environment;
 
-- (NSString *)accountDefaultsStringValueForKey:(NSString *)defaultsKey;
+- (NSString *)accountStringValueForKey:(NSString *)defaultsKey;
+- (NSString *)accountStringValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
 
-- (id)serializedAccountDefaultsValueForKey:(NSString *)defaultsKey;
-- (void)setSerializedAccountDefaultsValue:(id)value forKey:(NSString *)defaultsKey;
+- (BOOL)accountBoolValueForKey:(NSString *)defaultsKey;
+- (BOOL)accountBoolValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
+- (void)setAccountBoolValue:(BOOL)value forKey:(NSString *)defaultsKey;
+- (void)setAccountBoolValue:(BOOL)value forKey:(NSString *)defaultsKey environment:(NSString *)environment;
 
-- (BOOL)accountDefaultsBoolValueForKey:(NSString *)defaultsKey;
-- (void)setAccountDefaultsBoolValue:(BOOL)value forKey:(NSString *)defaultsKey;
-
+- (id)serializedAccountValueForKey:(NSString *)defaultsKey;
+- (id)serializedAccountValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
+- (void)setSerializedAccountValue:(id)value forKey:(NSString *)defaultsKey;
+- (void)setSerializedAccountValue:(id)value forKey:(NSString *)defaultsKey  environment:(NSString *)environment;
 @end
 
 
