@@ -126,6 +126,7 @@ typedef enum {
 - (id)serializedAccountValueForKey:(NSString *)defaultsKey environment:(NSString *)environment;
 - (void)setSerializedAccountValue:(id)value forKey:(NSString *)defaultsKey;
 - (void)setSerializedAccountValue:(id)value forKey:(NSString *)defaultsKey  environment:(NSString *)environment;
+
 @end
 
 
