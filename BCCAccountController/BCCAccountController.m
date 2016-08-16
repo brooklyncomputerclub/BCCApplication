@@ -298,7 +298,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     NSError *error = nil;
     [BCCKeychain deleteItemForUsername:identifier andServiceName:[BCCAccountController keychainServiceName] error:&error];
     if (error) {
-        NSLog(@"Unable to clear auth credentials due to error: %@", error);
+        //NSLog(@"Unable to clear auth credentials due to error: %@", error);
     }
 }
 
@@ -680,7 +680,7 @@ NSString *BCCAccountControllerNewCurrentAccountNotificationKey = @"BCCAccountCon
     NSError *error = nil;
     [BCCKeychain deleteItemForUsername:self.identifier andServiceName:[BCCAccountController keychainServiceName] error:&error];
     if (error) {
-        NSLog(@"Unable to clear auth credentials due to error: %@", error);
+        //NSLog(@"Unable to clear auth credentials due to error: %@", error);
     }
 }
 
