@@ -8,6 +8,7 @@
 #import "BCCSocialController.h"
 #import "BCCHTTPRequestQueue.h"
 #import "NSString+BCCAdditions.h"
+#import <Accounts/Accounts.h>
 
 NSString * const BCCSocialControllerTwitterOAuthBaseURL = @"https://api.twitter.com/oauth";
 NSString * const BCCSocialControllerTwitterRequestTokenEndpoint = @"request_token";
